@@ -134,9 +134,10 @@ stats = open(_path + '/stats.php','w+')
 stats.write(template.render(participants=participants, total=total, group=group[0:3],single=single[0:3],group_total=group_total,single_total=single_total,now=datetime.now()))
 stats.close()
 
-#Upload the final file to the server
-ftp = FTP('ftp.greenparktriathlon.co.uk', 'greenparktriathlon.co.uk', 'kC!9Eybts')
-ftp.storlines('STOR /public_html/stats.php', open(_path + '/stats.php','r'))
+# Upload the final file to the server
+# Not needed in the 2014 edition as the stats are used locally
+#ftp = FTP('ftp.greenparktriathlon.co.uk', 'greenparktriathlon.co.uk', 'kC!9Eybts')
+#ftp.storlines('STOR /public_html/stats.php', open(_path + '/stats.php','r'))
 
 logging.info('Scraping finished at: ' + str(datetime.now()))
 

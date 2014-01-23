@@ -42,9 +42,10 @@ def create_graph(values):
     graph.write(template.render(graph_data=graph_data, gauge_data=gauge_data).encode('utf-8'))
     graph.close()
 
-    #Upload the final file to the server
-    ftp = FTP('ftp.greenparktriathlon.co.uk', 'greenparktriathlon.co.uk', 'kC!9Eybts')
-    ftp.storlines('STOR /public_html/graph.php', open(_path + '/graph.php','r'))
+    # Upload the final file to the server
+    # Not needed in the 2014 edition as the graph is saved locally
+    #ftp = FTP('ftp.greenparktriathlon.co.uk', 'greenparktriathlon.co.uk', 'kC!9Eybts')
+    #ftp.storlines('STOR /public_html/graph.php', open(_path + '/graph.php','r'))
 
 
 if __name__ == '__main__':
