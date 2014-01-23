@@ -9,7 +9,7 @@
         google.load("visualization", "1", {packages:["corechart"]});
         google.setOnLoadCallback(drawChart);
         function drawChart() {
-            var data = new google.visualization.arrayToDataTable([['Event', '2013 So Far', '2012'], ['Total Competitors', 252, 306], ['Sprint Individual', 117, 76], ['Funathon Individual', 28, 39], ['Sprint Relay', 29, 44], ['Funathon Relay', 9, 22]]);
+            var data = new google.visualization.arrayToDataTable({{ graph_data }});
 
             var options = {
                 title: 'Sign-up Progress'
@@ -24,7 +24,7 @@
         google.load('visualization', '1', {packages:['gauge']});
         google.setOnLoadCallback(drawChart);
         function drawChart() {
-            var data = google.visualization.arrayToDataTable([['Label', 'Value'], ['Total Raised', 515]]);
+            var data = google.visualization.arrayToDataTable({{ gauge_data }});
 
             var options = {
                 width: 300, height: 300,

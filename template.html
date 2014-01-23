@@ -1,0 +1,88 @@
+<div style="margin: auto auto; width: 90%">
+    <h4 style="text-align: center;">
+        <span class="bold" id="contact" style="text-decoration: underline;">Fundraising Statistics 2014</span><br/><br/>
+    </h4>
+
+    <h3 style="text-align: center;">
+        Our Current Total: &pound;{{ total }}.00
+    </h3>
+    <h5 style="text-align: center;">
+        Top Three Groups Total: &pound;{{ group_total }}0
+    </h5>
+    <h5 style="text-align: center;">
+        Top Three Individuals Total: &pound;{{ single_total }}0
+    </h5>
+    <br/>
+    <h6>Top Three Groups</h6>
+    <table style="margin: auto auto; width: 80%;">
+        <thead>
+        <tr>
+            <td style="width: 65%"><span class="bold">Fundraiser name</span></td>
+            <td><span class="bold">Team?</span></td>
+            <td><span class="bold">Total Raised</span></td>
+            <td><span class="bold">Sponsor page</span></td>
+        </tr>
+        </thead>
+        <tbody>
+        {% for p in group %}
+            <tr>
+                <td>{{ p.name }}</td>
+                <td>{{ p.group }}</td>
+                <td>&pound;{{ p.total }}0</td>
+                <td><a href="{{ p.url }}">My Giving Page</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <br/><br/>
+    <h6>Top Three Individuals</h6>
+    <table style="margin: auto auto; width: 80%;">
+        <thead>
+        <tr>
+            <td style="width: 65%"><span class="bold">Fundraiser name</span></td>
+            <td><span class="bold">Team?</span></td>
+            <td><span class="bold">Total Raised</span></td>
+            <td><span class="bold">Sponsor page</span></td>
+        </tr>
+        </thead>
+        <tbody>
+        {% for p in single %}
+            <tr>
+                <td>{{ p.name }}</td>
+                <td>{{ p.group }}</td>
+                <td>&pound;{{ p.total }}0</td>
+                <td><a href="{{ p.url }}">My Giving Page</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <br/><br/>
+
+    <h6>Full list of fundraisers</h6>
+    <table style="margin: auto auto; width: 80%;">
+        <thead>
+        <tr>
+            <td style="width: 65%"><span class="bold">Fundraiser name</span></td>
+            <td><span class="bold">Team?</span></td>
+            <td><span class="bold">Total Raised</span></td>
+            <td><span class="bold">Sponsor page</span></td>
+        </tr>
+        </thead>
+        <tbody>
+        {% for p in participants %}
+            <tr>
+                <td>{{ p.name }}</td>
+                <td>{{ p.group }}</td>
+                <td>&pound;{{ p.total }}0</td>
+                <td><a href="{{ p.url }}">My Giving Page</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    </p>
+    <p>
+        Stats accurate as of: {{ now }}<br>
+        <span style="font-size: 1em; color: gainsboro;">* External team page. Due to technical restrictions does not count towards official Greenpark Triathlon total.</span>
+    </p>
+</div>

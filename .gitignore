@@ -1,4 +1,4 @@
 *.pyc
 *.log
-*.html
+*.php
 .DS_STORE
