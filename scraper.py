@@ -5,150 +5,155 @@ every user. Will then sort by highest total, and then calculate top 3 teams and 
 Also scrapes the full total. Produces a HTML page using a Jinja2 Template. Scraping is provided by BeautifulSoup4
 '''
 import urllib2
-from bs4 import BeautifulSoup
-from jinja2 import Environment, FileSystemLoader
+import itertools
 from operator import itemgetter
-from ftplib import FTP
 from datetime import datetime
 import logging
 import os
-import grapher
+from bs4 import BeautifulSoup
+from jinja2 import Environment, FileSystemLoader
+from concurrent.futures import ThreadPoolExecutor
+
+# Set the timezone to London
 os.environ['TZ'] = 'Europe/London'
-
-def get_members(response):
-    """
-    Args: response is a response object from urllib2.open
-    Returns: A beautifulsoup object bound to the original response
-
-    Find all divs with the class 'portrait'. If it is a normal profile (has a link to profile page) follow that link
-    and get detailed information about member. If not (private page) leave some information blank. Will catch and deal
-    with any 'placeholder' members.
-    """
-    soup = BeautifulSoup(response.read())
-    if soup:
-        for div in soup.find_all('div',{'class':'member'}):
-            div = div.div
-            if div.a:
-                url = div.a.get('href')
-                str(url).replace('https','http')
-                s = BeautifulSoup(urllib2.urlopen(url).read())
-                name = s.find('div', {'class':'profile-head'})
-                name = name.h3.get_text()
-                group = 'Yes' if "Team" in name else 'No'
-                participants.append({'name':name,'total':float(div.a.p.get_text().replace(u"\xa3","")), 'group' : group, 'url' : url})
-            elif div.h6 and div.p:
-                participants.append({'name':div.h6.get_text(),'total':float(div.p.get_text().replace(u"\xa3","")), 'group' : '?', 'url':'#'})
-            else:
-                pass
-                logging.warning('Could not find ANY data to scrape: probably a placeholder portrait on last page.')
-        return soup
-    else:
-        print 'Seems there was a problem loading the page'
-        exit(1)
-
-
-def get_extra_sponsors(sponsors):
-    additional_total = 0
-    for sponsor in sponsors:
-        url = u'http://my.sportrelief.com/sponsor/' + sponsor[0]
-        response = urllib2.urlopen(url)
-        s = BeautifulSoup(response)
-        total = s.find('div',{'class':'gauge'})
-        total = total.get('data-donation-total').decode("ascii")
-        additional_total += int(total)
-        split_total = additional_total / 2
-        name = s.find('div', {'class':'profile-head'})
-        name = name.h1.get_text()
-        participants.append({'name': 'Too INcredible*', 'total': float(split_total), 'group': sponsor[1], 'url': url})
-        participants.append({'name': 'Even More INcredible*', 'total': float(split_total), 'group': sponsor[1], 'url': url})
-
-    return additional_total
-
-def check_next(soup):
-    '''
-    Args: soup is a beautifulsoup object
-    Returns: True if another page is available to scrape
-    '''
-    global next_url
-    for a in soup.find_all('a', {'class':'pagination_button'}):
-        if a.get('title') == 'Next':
-            logging.info('Found next page, continuing...')
-            next_url = 'http://my.sportrelief.com/sponsor/greenparktriathlon' + a.get('href')
-            return True
-    logging.info('No next button, must be the final page')
-    return False
-
-
-def move_page():
-    ''' Return the response object for the next page '''
-    return urllib2.urlopen(next_url)
-
-#Get Path
+# Get the local path of the script
 _path = os.path.dirname(os.path.realpath(__file__))
+# Start Logging
+logging.basicConfig(filename=_path + '/scraper.log', level=logging.DEBUG)
 
-#Start Logging
-logging.basicConfig(filename=_path + '/scraper.log',level=logging.DEBUG)
 
-#Globals
-env = Environment(loader=FileSystemLoader(_path))
-participants = []
-#extra_sponsors = [('intermecgreenparktriathlon2013', 'Yes')]
-next_url = ''
-page = 1
+class TotalRender(object):
+    @staticmethod
+    def output_html(participants, total):
+        # Create a jinja2 environment based on where the script currently resides
+        env = Environment(loader=FileSystemLoader(_path))
 
-#Scrape the first page
-logging.info('Scrape starting at: ' + str(datetime.now()))
-logging.info('Scraping Page: ' + str(page))
-response = urllib2.urlopen('http://my.sportrelief.com/sponsor/greenparktriathlon')
-soup = get_members(response)
+        # Sort the particpants based on total and name, descending
+        participants.sort(key=itemgetter('total', 'name'), reverse=True)
 
-#While we're here may as well grab the total
-total = soup.find('div',{'class':'gauge'})
-total = int(total.get('data-donation-total').decode("ascii"))
+        # Create a few seperate lists and totals depending on whether this is a group entry or not
+        group = filter(lambda a: a['group'] == 'Yes', participants)
+        group_total = sum(item['total'] for item in group[0:3])
+        single = filter(lambda a: a['group'] == 'No', participants)
+        single_total = sum(item['total'] for item in single[0:3])
 
-#While 'next' button appears on page, follow the link and scrape all participants
-while check_next(soup):
-    page += 1
-    logging.info('Scraping Page: ' + str(page))
-    soup = get_members(move_page())
+        # Load the template and render using calculated values, save to stats.php
+        template = env.get_template('template.html')
+        stats = open(_path + '/stats.php', 'w+')
+        stats.write(template.render(participants=participants, total=total, group=group[0:3], single=single[0:3],
+                                    group_total=group_total, single_total=single_total, now=datetime.now()))
+        stats.close()
 
-#Get any extra sponsors
-additional_total = 0 #get_extra_sponsors(extra_sponsors)
 
-logging.info("Original Total: {} , Additional Total: {}".format(str(total), str(additional_total)))
-total += additional_total
-logging.info("New Total: " + str(total))
+class TotalScraper(object):
+    def __init__(self, base_url='http://my.sportrelief.com/sponsor/', team_name='greenparktriathlon',
+                 extra_sponsors=None):
+        self.base_url = base_url
+        self.team_name = team_name
+        self.full_team_name = base_url + team_name
+        self.extra_sponsors = extra_sponsors
+        self.participants = []
+        self.total = 0
 
-#Sort the particpants based on total and name, descending
-participants.sort(key=itemgetter('total','name'), reverse=True)
+    def scrape_totals(self):
+        #Scrape the first page
+        logging.info('Scrape starting at: '.format(datetime.now()))
+        response = urllib2.urlopen(self.full_team_name)
+        soup = BeautifulSoup(response.read())
 
-#Create a few seperate lists and totals depending on whether this is a group entry or not
-group = filter(lambda a: a['group'] == 'Yes', participants)
-group_total = sum(item['total'] for item in group[0:3])
-single = filter(lambda a: a['group'] == 'No', participants)
-single_total = sum(item['total'] for item in single[0:3])
+        #Grap the total from the first page
+        total = soup.find('div', {'class': 'gauge'})
+        total = int(total.get('data-donation-total').decode("ascii"))
 
-#Load the template and render using calculated values, save to stats.php
-template = env.get_template('template.html')
-stats = open(_path + '/stats.php','w+')
-stats.write(template.render(participants=participants, total=total, group=group[0:3],single=single[0:3],group_total=group_total,single_total=single_total,now=datetime.now()))
-stats.close()
+        #While 'next' button appears on page, follow the link and scrape all participants
+        for soup in self._scrape_all_valid_team_members():
+            self._process_page_of_members_from_soup(soup)
 
-# Upload the final file to the server
-# Not needed in the 2014 edition as the stats are used locally
-#ftp = FTP('ftp.greenparktriathlon.co.uk', 'greenparktriathlon.co.uk', 'kC!9Eybts')
-#ftp.storlines('STOR /public_html/stats.php', open(_path + '/stats.php','r'))
+        #Get any extra sponsors that are not linked with the parent team
+        additional_total = self._get_extra_sponsors(self.extra_sponsors)
 
-logging.info('Scraping finished at: ' + str(datetime.now()))
+        logging.info("Original Total: {} , Additional Total: {}".format(str(total), str(additional_total)))
+        total += additional_total
+        logging.info("New Total: " + str(total))
+        logging.info('Scraping finished at: {}'.format(datetime.now()))
 
-logging.info('Updating Graph')
-grapher.create_graph(values=
-                    {
-                        'total':total,
-                        'total_compt': (252,306),
-                        'sprint_indv': (117, 76),
-                        'funathon_indv': (28, 39),
-                        'sprint_team': (29, 44),
-                        'funathon_team': (9, 22)
-                    }
-                    )
+        return self.total, self.participants
+
+    def _scrape_all_valid_team_members(self):
+        """
+        Generator that returns a list of all beautiful soup objects with valid team members. Will stop when no team
+        more team members can be found.
+        """
+        for page_id in itertools.count(start=1):
+            logging.info('Checking page {} contains team members'.format(page_id))
+            url = self.full_team_name + "?page[members-ranked]={}".format(page_id)
+            s = BeautifulSoup(urllib2.urlopen(url).read())
+            if s.find('div', {'class': 'member'}):
+                logging.info('Page {} contains team members. Scraping team member totals'.format(page_id))
+                yield s
+            else:
+                logging.info('Page {} contains no team members. Stopping search'.format(page_id))
+                raise StopIteration
+
+    def _process_page_of_members_from_soup(self, soup):
+        """
+        Returns: A beautifulsoup object bound to the original response
+
+        Find all divs with the class 'member'. Will execute further scraping of individual members in parallel Threads.
+        """
+        pool = ThreadPoolExecutor(max_workers=7)
+        pool.map(self._process_individual_member, soup.find_all('div', {'class': 'member'}))
+        return soup
+
+    def _process_individual_member(self, div):
+        """
+        Take a beautiful soup div object and scrape all pertinent data. If it is a normal profile (has a link to
+        profile page) follow that link and get detailed information about member. If not (private page) leave some
+        information blank. Will catch and deal with any 'placeholder' members.
+        """
+        div = div.div
+        if div.a:
+            url = div.a.get('href')
+            str(url).replace('https', 'http')
+            s = BeautifulSoup(urllib2.urlopen(url).read())
+            name = s.find('div', {'class': 'profile-head'})
+            name = name.h3.get_text()
+            group = 'Yes' if "Team" in name else 'No'
+            self.participants.append(
+                {'name': name, 'total': float(div.a.p.get_text().replace(u"\xa3", "")), 'group': group, 'url': url})
+        elif div.h6 and div.p:
+            self.participants.append(
+                {'name': div.h6.get_text(), 'total': float(div.p.get_text().replace(u"\xa3", "")), 'group': '?',
+                 'url': '#'})
+        else:
+            logging.warning('Could not find ANY data to scrape: probably a placeholder portrait on last page.')
+
+    def _get_extra_sponsors(self, sponsors):
+        """
+        Take a list of sponsor tuples in format (sponsorname, group). Returns an additional total while adding any
+        scrapped participants to the instances list of participants.
+        """
+        additional_total = 0
+        if sponsors:
+            for sponsor in sponsors:
+                url = self.base_url + sponsor[0]
+                response = urllib2.urlopen(url)
+                s = BeautifulSoup(response)
+                total = s.find('div', {'class': 'gauge'})
+                total = total.get('data-donation-total').decode("ascii")
+                additional_total += int(total)
+                name = s.find('div', {'class': 'profile-head'})
+                name = name.h1.get_text()
+                self.participants.append(
+                    {'name': name, 'total': float(total), 'group': sponsor[1], 'url': url})
+        return additional_total
+
+
+def main():
+    total_scraper = TotalScraper()
+    total, participants = total_scraper.scrape_totals()
+    TotalRender.output_html(participants, total)
+
+
+if __name__ == '__main__':
+    main()
