@@ -16,6 +16,7 @@ from jinja2 import Environment, FileSystemLoader
 from concurrent.futures import ThreadPoolExecutor
 
 
+
 # Set the timezone to London
 os.environ['TZ'] = 'Europe/London'
 # Get the local path of the script
@@ -56,7 +57,8 @@ class TotalScraper(object):
         self.extra_sponsors = extra_sponsors
         self.participants = []
         self.total = 0
-        self.pool = ThreadPoolExecutor(max_workers=15)
+        self.pool = ThreadPoolExecutor(max_workers=30)
+        self.futures = []
 
     def scrape_totals(self):
         #Scrape the first page
@@ -71,6 +73,8 @@ class TotalScraper(object):
         #While 'next' button appears on page, follow the link and scrape all participants
         for soup in self._scrape_all_valid_team_members():
             self._process_page_of_members_from_soup(soup)
+
+        [logging.debug(fut.result()) for fut in self.futures]
 
         #Get any extra sponsors that are not linked with the parent team
         additional_total = self._get_extra_sponsors(self.extra_sponsors)
@@ -105,13 +109,8 @@ class TotalScraper(object):
         Find all divs with the class 'member'. Will execute further scraping of individual members in parallel Threads.
         """
         logging.debug("processing page of members with soup ".format(soup))
-        #self.pool.map(self._process_individual_member, soup.find_all('div', {'class': 'member'}))
-        #pool.join()
         for div in soup.find_all('div', {'class': 'member'}):
-            #fut = self.pool.submit(self._process_individual_member, div)
-            self._process_individual_member(div)
-
-            #for div in soup.find_all('div', {'class': 'member'}):
+            self.futures.append(self.pool.submit(self._process_individual_member, div))
 
     def _process_individual_member(self, div):
         """
@@ -151,18 +150,21 @@ class TotalScraper(object):
                 url = self.base_url + sponsor[0]
                 response = urllib2.urlopen(url)
                 s = BeautifulSoup(response)
-                total = s.find('div', {'class': 'gauge'})
-                total = total.get('data-donation-total').decode("ascii")
-                additional_total += int(total)
                 name = s.find('div', {'class': 'profile-head'})
-                name = name.h1.get_text()
+                name = name.h3.get_text()
+                total = s.find('div', {'class': 'gauge'})
+                total = total.get('data-donation-total').decode("ascii").replace(',', '')
+                additional_total += float(total)
                 self.participants.append(
                     {'name': name, 'total': float(total), 'group': sponsor[1], 'url': url})
         return additional_total
 
 
 def main():
-    total_scraper = TotalScraper()
+    extra_participants = [
+        ('mightymags', 'Yes')
+    ]
+    total_scraper = TotalScraper(extra_sponsors=extra_participants)
     total, participants = total_scraper.scrape_totals()
     TotalRender.output_html(participants, total)
 
