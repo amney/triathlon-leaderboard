@@ -66,7 +66,7 @@ class TotalScraper(object):
 
         #Grap the total from the first page
         total = soup.find('div', {'class': 'gauge'})
-        total = int(total.get('data-donation-total').decode("ascii"))
+        self.total = int(total.get('data-donation-total').decode("ascii"))
 
         #While 'next' button appears on page, follow the link and scrape all participants
         for soup in self._scrape_all_valid_team_members():
@@ -75,9 +75,9 @@ class TotalScraper(object):
         #Get any extra sponsors that are not linked with the parent team
         additional_total = self._get_extra_sponsors(self.extra_sponsors)
 
-        logging.info("Original Total: {} , Additional Total: {}".format(str(total), str(additional_total)))
-        total += additional_total
-        logging.info("New Total: " + str(total))
+        logging.info("Original Total: {} , Additional Total: {}".format(str(self.total), str(additional_total)))
+        self.total += additional_total
+        logging.info("New Total: " + str(self.total))
         logging.info('Scraping finished at: {}'.format(datetime.now()))
 
         return self.total, self.participants
@@ -87,7 +87,7 @@ class TotalScraper(object):
         Generator that returns a list of all beautiful soup objects with valid team members. Will stop when no team
         more team members can be found.
         """
-        for page_id in itertools.count(start=1):
+        for page_id in xrange(1, 2):
             logging.info('Checking page {} contains team members'.format(page_id))
             url = self.full_team_name + "?page[members-ranked]={}".format(page_id)
             s = BeautifulSoup(urllib2.urlopen(url).read())
