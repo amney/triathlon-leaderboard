@@ -10,16 +10,21 @@ from operator import itemgetter
 from datetime import datetime
 import logging
 import os
+
 from bs4 import BeautifulSoup
 from jinja2 import Environment, FileSystemLoader
 from concurrent.futures import ThreadPoolExecutor
+
+
+
+
 
 # Set the timezone to London
 os.environ['TZ'] = 'Europe/London'
 # Get the local path of the script
 _path = os.path.dirname(os.path.realpath(__file__))
 # Start Logging
-logging.basicConfig(filename=_path + '/scraper.log', level=logging.DEBUG)
+logging.basicConfig(filename=_path + '/scraper.log', level=logging.INFO)
 
 
 class TotalRender(object):
@@ -54,6 +59,7 @@ class TotalScraper(object):
         self.extra_sponsors = extra_sponsors
         self.participants = []
         self.total = 0
+        self.pool = ThreadPoolExecutor(max_workers=15)
 
     def scrape_totals(self):
         #Scrape the first page
@@ -101,9 +107,14 @@ class TotalScraper(object):
 
         Find all divs with the class 'member'. Will execute further scraping of individual members in parallel Threads.
         """
-        pool = ThreadPoolExecutor(max_workers=7)
-        pool.map(self._process_individual_member, soup.find_all('div', {'class': 'member'}))
-        return soup
+        logging.debug("processing page of members with soup ".format(soup))
+        #self.pool.map(self._process_individual_member, soup.find_all('div', {'class': 'member'}))
+        #pool.join()
+        for div in soup.find_all('div', {'class': 'member'}):
+            #fut = self.pool.submit(self._process_individual_member, div)
+            self._process_individual_member(div)
+
+            #for div in soup.find_all('div', {'class': 'member'}):
 
     def _process_individual_member(self, div):
         """
@@ -111,6 +122,7 @@ class TotalScraper(object):
         profile page) follow that link and get detailed information about member. If not (private page) leave some
         information blank. Will catch and deal with any 'placeholder' members.
         """
+        logging.debug("processing member with div {}".format(div))
         div = div.div
         if div.a:
             url = div.a.get('href')
@@ -120,13 +132,16 @@ class TotalScraper(object):
             name = name.h3.get_text()
             group = 'Yes' if "Team" in name else 'No'
             self.participants.append(
-                {'name': name, 'total': float(div.a.p.get_text().replace(u"\xa3", "")), 'group': group, 'url': url})
+                {'name': name, 'total': float(div.a.p.get_text().replace(u"\xa3", "").replace(',', '')), 'group': group,
+                 'url': url})
         elif div.h6 and div.p:
             self.participants.append(
-                {'name': div.h6.get_text(), 'total': float(div.p.get_text().replace(u"\xa3", "")), 'group': '?',
+                {'name': div.h6.get_text(),
+                 'total': float(div.p.get_text().replace(u"\xa3", "").replace(',', '')), 'group': '?',
                  'url': '#'})
         else:
             logging.warning('Could not find ANY data to scrape: probably a placeholder portrait on last page.')
+
 
     def _get_extra_sponsors(self, sponsors):
         """
