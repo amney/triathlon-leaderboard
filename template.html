@@ -4,13 +4,13 @@
     </h4>
 
     <h3 style="text-align: center;">
-        Our Current Total: &pound;{{ total }}.00
+        Our Current Total: &pound;{{ '%0.2f' % total }}
     </h3>
     <h5 style="text-align: center;">
-        Top Three Groups Total: &pound;{{ group_total }}0
+        Top Three Groups Total: &pound;{{ '%0.2f'  % group_total }}
     </h5>
     <h5 style="text-align: center;">
-        Top Three Individuals Total: &pound;{{ single_total }}0
+        Top Three Individuals Total: &pound;{{ '%0.2f' % single_total }}0
     </h5>
     <br/>
     <h6>Top Three Groups</h6>
@@ -28,7 +28,7 @@
             <tr>
                 <td>{{ p.name }}</td>
                 <td>{{ p.group }}</td>
-                <td>&pound;{{ p.total }}0</td>
+                <td>&pound;{{ '%0.2f' % p.total }}</td>
                 <td><a href="{{ p.url }}">My Giving Page</a></td>
             </tr>
         {% endfor %}
@@ -50,7 +50,7 @@
             <tr>
                 <td>{{ p.name }}</td>
                 <td>{{ p.group }}</td>
-                <td>&pound;{{ p.total }}0</td>
+                <td>&pound;{{ '%0.2f' % p.total }}</td>
                 <td><a href="{{ p.url }}">My Giving Page</a></td>
             </tr>
         {% endfor %}
@@ -73,7 +73,7 @@
             <tr>
                 <td>{{ p.name }}</td>
                 <td>{{ p.group }}</td>
-                <td>&pound;{{ p.total }}0</td>
+                <td>&pound;{{ '%0.2f' % p.total }}</td>
                 <td><a href="{{ p.url }}">My Giving Page</a></td>
             </tr>
         {% endfor %}

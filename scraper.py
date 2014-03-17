@@ -16,9 +16,6 @@ from jinja2 import Environment, FileSystemLoader
 from concurrent.futures import ThreadPoolExecutor
 
 
-
-
-
 # Set the timezone to London
 os.environ['TZ'] = 'Europe/London'
 # Get the local path of the script
@@ -38,14 +35,14 @@ class TotalRender(object):
 
         # Create a few seperate lists and totals depending on whether this is a group entry or not
         group = filter(lambda a: a['group'] == 'Yes', participants)
-        group_total = sum(item['total'] for item in group[0:3])
+        group_total = sum(item['total'] for item in group[:3])
         single = filter(lambda a: a['group'] == 'No', participants)
-        single_total = sum(item['total'] for item in single[0:3])
+        single_total = sum(item['total'] for item in single[:3])
 
         # Load the template and render using calculated values, save to stats.php
         template = env.get_template('template.html')
         stats = open(_path + '/stats.php', 'w+')
-        stats.write(template.render(participants=participants, total=total, group=group[0:3], single=single[0:3],
+        stats.write(template.render(participants=participants, total=total, group=group[:3], single=single[:3],
                                     group_total=group_total, single_total=single_total, now=datetime.now()))
         stats.close()
 
