@@ -87,7 +87,7 @@ class TotalScraper(object):
         Generator that returns a list of all beautiful soup objects with valid team members. Will stop when no team
         more team members can be found.
         """
-        for page_id in xrange(1, 2):
+        for page_id in itertools.count(start=1):
             logging.info('Checking page {} contains team members'.format(page_id))
             url = self.full_team_name + "?page[members-ranked]={}".format(page_id)
             s = BeautifulSoup(urllib2.urlopen(url).read())
