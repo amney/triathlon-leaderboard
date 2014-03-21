@@ -1,4 +1,6 @@
 *.pyc
 *.log
 *.php
+*.csv
+*.db
 .DS_STORE
