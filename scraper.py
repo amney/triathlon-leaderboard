@@ -1,3 +1,5 @@
+import argparse
+
 __author__ = 'tigarner'
 '''
 Scrape all participants for a particular comic relief fundraising team. Builds up a list of dictionaries for
@@ -16,20 +18,11 @@ from jinja2 import Environment, FileSystemLoader
 from concurrent.futures import ThreadPoolExecutor
 
 
-
-# Set the timezone to London
-os.environ['TZ'] = 'Europe/London'
-# Get the local path of the script
-_path = os.path.dirname(os.path.realpath(__file__))
-# Start Logging
-logging.basicConfig(filename=_path + '/scraper.log', level=logging.INFO)
-
-
 class TotalRender(object):
     @staticmethod
-    def output_html(participants, total):
+    def output_html(participants, total, path, outfile):
         # Create a jinja2 environment based on where the script currently resides
-        env = Environment(loader=FileSystemLoader(_path))
+        env = Environment(loader=FileSystemLoader(path))
 
         # Sort the particpants based on total and name, descending
         participants.sort(key=itemgetter('total', 'name'), reverse=True)
@@ -42,22 +35,22 @@ class TotalRender(object):
 
         # Load the template and render using calculated values, save to stats.php
         template = env.get_template('template.html')
-        stats = open(_path + '/stats.php', 'w+')
-        stats.write(template.render(participants=participants, total=total, group=group[:3], single=single[:3],
-                                    group_total=group_total, single_total=single_total, now=datetime.now()))
-        stats.close()
+
+        with open(path + outfile, 'wb') as stats:
+            stats.write(template.render(participants=participants, total=total, group=group[:3], single=single[:3],
+                                        group_total=group_total, single_total=single_total, now=datetime.now()))
 
 
 class TotalScraper(object):
     def __init__(self, base_url='http://my.sportrelief.com/sponsor/', team_name='greenparktriathlon',
-                 extra_sponsors=None):
+                 extra_sponsors=None, max_workers=30):
         self.base_url = base_url
         self.team_name = team_name
         self.full_team_name = base_url + team_name
         self.extra_sponsors = extra_sponsors
         self.participants = []
         self.total = 0
-        self.pool = ThreadPoolExecutor(max_workers=30)
+        self.pool = ThreadPoolExecutor(max_workers=max_workers)
         self.futures = []
 
     def scrape_totals(self):
@@ -161,12 +154,34 @@ class TotalScraper(object):
 
 
 def main():
-    extra_participants = [
-        ('mightymags', 'Yes')
-    ]
-    total_scraper = TotalScraper(extra_sponsors=extra_participants)
+    # Set the timezone to London
+    os.environ['TZ'] = 'Europe/London'
+    # Get the local path of the script
+    path = os.path.dirname(os.path.realpath(__file__))
+    # Start Logging
+    logging.basicConfig(filename=path + '/scraper.log', level=logging.INFO)
+
+    parser = argparse.ArgumentParser(description=TotalScraper.__doc__)
+    parser.add_argument('-v', '--verbose', help='Log verbosely to stdout', action='store_false')
+    parser.add_argument('-w', '--workers', help='Maximum amount of concurrent workers. Defaults to 30', default='30')
+    parser.add_argument('-t', '--team', help='Name of master sport relief team. Defaults to greenparktriathlon',
+                        default='greenparktriathlon')
+    parser.add_argument('-o', '--output-file', help='Name of the file to output to', default='stats.php')
+    parser.add_argument('--extra-participants', nargs='+', metavar='team:group',
+                        help='''A list of extra participants that are not connected to the master team.
+                                Provided in the format name:team e.g. mightymags:Yes''')
+    args = parser.parse_args()
+    print args
+    extra_participants = []
+    if args.extra_participants:
+        for extra_participant in args.extra_participants:
+            extra_participants.append(tuple(extra_participant.split(':')))
+
+    print extra_participants
+
+    total_scraper = TotalScraper(team_name=args.team, extra_sponsors=extra_participants, max_workers=args.workers)
     total, participants = total_scraper.scrape_totals()
-    TotalRender.output_html(participants, total)
+    TotalRender.output_html(participants, total, path, args.output_file)
 
 
 if __name__ == '__main__':
