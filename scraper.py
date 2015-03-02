@@ -38,9 +38,10 @@ class TotalRender(object):
         # Load the template and render using calculated values, save to stats.php
         template = env.get_template('template.html')
 
-        with open(os.path.join(path, outfile), 'wb') as stats:
-            stats.write(template.render(participants=participants, total=total, group=group[:3], single=single[:3],
-                                        group_total=group_total, single_total=single_total, now=datetime.now()))
+        stats = open(os.path.join(path, outfile), 'wb')
+        stats.write(template.render(participants=participants, total=total, group=group[:3], single=single[:3],
+                                    group_total=group_total, single_total=single_total, now=datetime.now()))
+        stats.close()
 
 
 class TotalScraper(object):
@@ -56,7 +57,7 @@ class TotalScraper(object):
         self.futures = []
 
     def scrape_totals(self):
-        #Scrape the first page
+        # Scrape the first page
         logging.info('Scrape starting at: '.format(datetime.now()))
         response = urllib2.urlopen(self.full_team_name)
         soup = BeautifulSoup(response.read())
@@ -125,7 +126,7 @@ class TotalScraper(object):
             amount_raised = div.a.p.get_text()
             amount_raised = float(re.findall(u'Amount raised £([\d\.]+)', amount_raised)[0])
             self.participants.append(
-                {'name': name, 'total':amount_raised, 'group': group,
+                {'name': name, 'total': amount_raised, 'group': group,
                  'url': url})
         elif div.h6 and div.p:
             amount_raised = div.p.get_text()
