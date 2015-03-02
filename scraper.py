@@ -1,4 +1,6 @@
+# coding=utf-8
 import argparse
+import re
 
 __author__ = 'tigarner'
 '''
@@ -36,13 +38,13 @@ class TotalRender(object):
         # Load the template and render using calculated values, save to stats.php
         template = env.get_template('template.html')
 
-        with open(path + outfile, 'wb') as stats:
+        with open(os.path.join(path, outfile), 'wb') as stats:
             stats.write(template.render(participants=participants, total=total, group=group[:3], single=single[:3],
                                         group_total=group_total, single_total=single_total, now=datetime.now()))
 
 
 class TotalScraper(object):
-    def __init__(self, base_url='http://my.sportrelief.com/sponsor/', team_name='greenparktriathlon',
+    def __init__(self, base_url='http://my.rednoseday.com/sponsor/', team_name='green-park-triathlon',
                  extra_sponsors=None, max_workers=30):
         self.base_url = base_url
         self.team_name = team_name
@@ -118,15 +120,19 @@ class TotalScraper(object):
             str(url).replace('https', 'http')
             s = BeautifulSoup(urllib2.urlopen(url).read())
             name = s.find('div', {'class': 'profile-head'})
-            name = name.h3.get_text()
+            name = name.h3.get_text().encode("ascii", "ignore")
             group = 'Yes' if "Team" in name else 'No'
+            amount_raised = div.a.p.get_text()
+            amount_raised = float(re.findall(u'Amount raised £([\d\.]+)', amount_raised)[0])
             self.participants.append(
-                {'name': name, 'total': float(div.a.p.get_text().replace(u"\xa3", "").replace(',', '')), 'group': group,
+                {'name': name, 'total':amount_raised, 'group': group,
                  'url': url})
         elif div.h6 and div.p:
+            amount_raised = div.p.get_text()
+            amount_raised = float(re.findall(u'Amount raised £([\d\.]+)', amount_raised)[0])
             self.participants.append(
-                {'name': div.h6.get_text(),
-                 'total': float(div.p.get_text().replace(u"\xa3", "").replace(',', '')), 'group': '?',
+                {'name': div.h6.get_text().encode("ascii", "ignore"),
+                 'total': amount_raised, 'group': '?',
                  'url': '#'})
         else:
             logging.warning('Could not find ANY data to scrape: probably a placeholder portrait on last page.')
@@ -165,7 +171,7 @@ def main():
     parser.add_argument('-v', '--verbose', help='Log verbosely to stdout', action='store_false')
     parser.add_argument('-w', '--workers', help='Maximum amount of concurrent workers. Defaults to 30', default='30')
     parser.add_argument('-t', '--team', help='Name of master sport relief team. Defaults to greenparktriathlon',
-                        default='greenparktriathlon')
+                        default='green-park-triathlon')
     parser.add_argument('-o', '--output-file', help='Name of the file to output to', default='stats.php')
     parser.add_argument('--extra-participants', nargs='+', metavar='team:group',
                         help='''A list of extra participants that are not connected to the master team.
