@@ -121,10 +121,7 @@ class TotalScraper(object):
             s = BeautifulSoup(urllib2.urlopen(url).read())
             name = s.find('div', {'class': 'profile-head'})
             name = name.h3.get_text().encode("ascii", "ignore")
-            if name == "Team":
-                group = 'Yes'
-            else:
-                group = 'No'
+            group = 'Yes' if "Team" in name else 'No'
             amount_raised = div.a.p.get_text()
             amount_raised = float(re.findall(u'Amount raised £([\d\.]+)', amount_raised)[0])
             self.participants.append(
